@@ -37,7 +37,7 @@ pub enum State {
     Default,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub enum Result {
     Waiting,
     Running,

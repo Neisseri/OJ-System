@@ -14,6 +14,7 @@ pub mod post_job_api {
     use std::time::{Duration, Instant};
     use chrono::{Utc, SecondsFormat};
     use crate::tool::vec_char_equal;
+    use wait_timeout::ChildExt;
 
     #[derive(Clone, Deserialize, Serialize, Default, Debug)]
     pub struct PostJob {
@@ -87,13 +88,13 @@ pub mod post_job_api {
         // `s` is the path of the temporary directory
         // println!("PATH is {}", &s);
         let result = fs::create_dir(s.clone());
-        /*if result.unwrap() == panic!() {
+        if result.is_err() == true {
             return HttpResponse::BadRequest().json(Error {
                 code: 5,
                 reason: "ERR_EXTERNAL".to_string(),
                 message: "HTTP 500 Internal Server Error".to_string()
             });
-        } // create a new temporary directory*/
+        } // create a new temporary directory
 
         let file_path = format!("{}/{}", s.clone(), file_name.clone());
         // the path of source code file
@@ -120,7 +121,7 @@ pub mod post_job_api {
                 .args(argumemts)
                 .status();
         // compile the source code and create execute file
-        if status.is_ok() {
+        if status.unwrap().success() == true {
             response.cases.push(CaseResult {
                 id: 0,
                 result: Result::CompilationSuccess,
@@ -136,29 +137,61 @@ pub mod post_job_api {
                 memory: 0, 
                 info: "".to_string()
             });
+            response.result = Result::CompilationError;
         } // push the result of compilation
         
         // The Problem index in problems vector: pro_index
         let pro_info = config.problems[pro_index].clone();
         let cases = pro_info.cases.clone();
         let out_file_path = format!("{}/test.out", s.clone()).clone();
-        // println!("!!!!!!!!!!{}!!!!!!!!!", &out_file_path);
+        // println!("{}", &out_file_path);
         let mut total_score: f64 = 0.0;
         for i in 0..cases.len() {
+
+            if response.result == Result::CompilationError {
+                response.cases.push(CaseResult { 
+                    id: (i + 1) as u64, 
+                    result: Result::Waiting, 
+                    time: 0, 
+                    memory: 0, 
+                    info: "".to_string() 
+                });
+                continue;
+            } // if compile error, the result is `waiting`
+
             let begin_instant = Instant::now();
             let in_file = fs::File::open(&cases[i].input_file).unwrap();
             let out_file = fs::File::create(&out_file_path).unwrap();
-            let mut status = Command::new(&exe_path)
+            /*let mut status = Command::new(&exe_path)
                     .stdin(Stdio::from(in_file))
                     .stdout(Stdio::from(out_file))
                     .stderr(Stdio::null())
-                    .status();
+                    .status();*/
 
-            // wait some time
-            // Don't sleep, use async timeout
-            // select!
-            // child.kill();
-            
+            let mut child = Command::new(&exe_path)
+                    .stdin(Stdio::from(in_file))
+                    .stdout(Stdio::from(out_file))
+                    .stderr(Stdio::null())
+                    .spawn()
+                    .unwrap();
+            let wait_time = Duration::from_micros(500000 + cases[i].time_limit);
+            let status = 
+                match child.wait_timeout(wait_time).unwrap() {
+                    Some(status) => status,
+                    None => {
+                        // child hasn't exited yet
+                        child.kill().unwrap();
+                        response.cases.push(CaseResult {
+                            id: (i + 1) as u64,
+                            result: Result::TimeLimitExceeded,
+                            time: 500 + cases[i].time_limit,
+                            memory: 0,
+                            info: "".to_string()
+                        });
+                        response.result = Result::TimeLimitExceeded;
+                        continue;
+                    }
+                }; 
 
             // generate the output file
             let end_instant = Instant::now();
@@ -167,7 +200,7 @@ pub mod post_job_api {
                 .as_micros();
             // get the run time
 
-            if status.is_err() == true {
+            if status.success() == false {
                 response.cases.push(CaseResult { 
                     id: (i + 1) as u64, 
                     result: Result::RuntimeError, 
@@ -175,10 +208,10 @@ pub mod post_job_api {
                     memory: 0, 
                     info: "".to_string() 
                 });
-                println!("!!!!!!!!!!!!!!!!!!!!!!!");
+                response.result = Result::RuntimeError;
                 continue;
             } // Runtime Error: such as the program panic
-
+ 
             let answer = std::fs::read_to_string(&cases[i].answer_file).unwrap();
             let output = std::fs::read_to_string(&out_file_path).unwrap();
             let mut cmp_result: bool = true;
@@ -242,7 +275,9 @@ pub mod post_job_api {
         if total_score == 100.0 {
             response.result = Result::Accepted;
         } else {
-            response.result = Result::WrongAnswer;
+            if response.result == Result::Default {
+                response.result = Result::WrongAnswer;
+            }   
         }
         response.state = State::Finished;
         response.submission = body.clone();
@@ -265,6 +300,8 @@ pub mod post_job_api {
             serde_json::to_string_pretty(&response.clone())
             .unwrap();
         // change the struct to json format String
+
+        // println!("{response_body}");
 
         HttpResponse::Ok().body(response_body)
     }
