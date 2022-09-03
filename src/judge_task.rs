@@ -1,10 +1,8 @@
 pub mod post_job_api {
 
-    use actix_web::{get, middleware::Logger, post, web, App, HttpServer, Responder, HttpResponse};
-    use env_logger;
-    use log;
+    use actix_web::{post, web, Responder, HttpResponse};
     use serde::{Serialize, Deserialize};
-    use crate::config::{Config, Case};
+    use crate::config::Config;
     use crate::error::Error;
     use crate::global;
     use std::fs;
@@ -302,6 +300,9 @@ pub mod post_job_api {
         // change the struct to json format String
 
         // println!("{response_body}");
+
+        let mut lock = global::JOB_LIST.lock().unwrap();
+        (*lock).push(response.clone());
 
         HttpResponse::Ok().body(response_body)
     }

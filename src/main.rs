@@ -3,6 +3,9 @@ use env_logger;
 use log;
 use crate::config::get_config;
 use crate::judge_task::post_job_api::post_jobs;
+use crate::judge_list::get_jobs;
+use crate::get_single_job::get_job_id;
+use crate::put_jobs_id::put_jobs;
 
 mod config;
 mod judge_task;
@@ -10,6 +13,9 @@ mod error;
 mod global;
 mod response;
 mod tool;
+mod judge_list;
+mod get_single_job;
+mod put_jobs_id;
 
 #[get("/hello/{name}")]
 async fn greet(name: web::Path<String>) -> impl Responder {
@@ -40,6 +46,9 @@ async fn main() -> std::io::Result<()> {
             // DO NOT REMOVE: used in automatic testing
             .service(exit)
             .service(post_jobs)
+            .service(get_jobs)
+            .service(get_job_id)
+            .service(put_jobs)
             .app_data(web::Data::new(config.clone()))
 
     })
