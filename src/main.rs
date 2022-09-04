@@ -6,6 +6,7 @@ use crate::judge_task::post_job_api::post_jobs;
 use crate::judge_list::get_jobs;
 use crate::get_single_job::get_job_id;
 use crate::put_jobs_id::put_jobs;
+use crate::users_api::{put_users, get_users};
 
 mod config;
 mod judge_task;
@@ -16,6 +17,7 @@ mod tool;
 mod judge_list;
 mod get_single_job;
 mod put_jobs_id;
+mod users_api;
 
 #[get("/hello/{name}")]
 async fn greet(name: web::Path<String>) -> impl Responder {
@@ -49,6 +51,8 @@ async fn main() -> std::io::Result<()> {
             .service(get_jobs)
             .service(get_job_id)
             .service(put_jobs)
+            .service(put_users)
+            .service(get_users)
             .app_data(web::Data::new(config.clone()))
 
     })

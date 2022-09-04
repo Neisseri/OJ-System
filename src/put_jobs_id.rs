@@ -1,23 +1,14 @@
-use actix_web::{put, web, Responder, HttpResponse, http};
-use crate::global::{JOB_LIST, JOB_NUM, self};
-use crate::config::Config;
-use crate::response::{Response, CaseResult, Result, State};
+use actix_web::{put, web, Responder, HttpResponse};
+use crate::global::JOB_LIST;
 use crate::error::Error;
-use std::fs;
-use std::io::Write;    
-use std::time::{Duration, Instant};
-use std::process::{Command, Stdio};
-use wait_timeout::ChildExt;
 use chrono::{Utc, SecondsFormat};
-use crate::tool::vec_char_equal;
 
 #[put("/jobs/{job_id}")]
-async fn put_jobs(path: web::Path<usize>,
-        config: web::Data<Config>) -> impl Responder {
+async fn put_jobs(path: web::Path<usize>) -> impl Responder {
     
     let job_id: usize = path.into_inner();
     let mut lock = JOB_LIST.lock().unwrap();
-    let mut job_list = (*lock).clone();
+    let job_list = (*lock).clone();
 
     if job_id as i32 > job_list.len() as i32 - 1 {
         return HttpResponse::NotFound().json(Error {

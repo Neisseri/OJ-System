@@ -26,8 +26,6 @@ pub mod post_job_api {
     #[post("/jobs")]
     async fn post_jobs(body: web::Json<PostJob>, 
         config: web::Data<Config>) -> impl Responder {
-        // println!("OPEN successfully!");
-        // println!("{}", body.source_code);
 
         let mut response = Response::new();
         // the json struct 'Response` type `response`
@@ -68,8 +66,10 @@ pub mod post_job_api {
                 break;
             }
         } // check the problem id
-        if valid_language == false || valid_problem_id == false {
-            return HttpResponse::BadRequest().json(Error {
+        let user_list = global::USER_LIST.lock().unwrap();
+        if valid_language == false || valid_problem_id == false 
+            || body.user_id > (*user_list).len() as u64 - 1 { // check the user id
+            return HttpResponse::NotFound().json(Error {
                 code: 3,
                 reason: "ERR_NOT_FOUND".to_string(),
                 message: "HTTP 404 Not Found".to_string()
