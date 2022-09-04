@@ -1,12 +1,13 @@
 use actix_web::{get, middleware::Logger, post, web, App, HttpServer, Responder};
 use env_logger;
 use log;
+use ranking_list::get_contests_ranklist;
 use crate::config::get_config;
 use crate::judge_task::post_job_api::post_jobs;
 use crate::judge_list::get_jobs;
 use crate::get_single_job::get_job_id;
 use crate::put_jobs_id::put_jobs;
-use crate::users_api::{put_users, get_users};
+use crate::users_api::{post_users, get_users};
 
 mod config;
 mod judge_task;
@@ -18,6 +19,7 @@ mod judge_list;
 mod get_single_job;
 mod put_jobs_id;
 mod users_api;
+mod ranking_list;
 
 #[get("/hello/{name}")]
 async fn greet(name: web::Path<String>) -> impl Responder {
@@ -51,8 +53,9 @@ async fn main() -> std::io::Result<()> {
             .service(get_jobs)
             .service(get_job_id)
             .service(put_jobs)
-            .service(put_users)
+            .service(post_users)
             .service(get_users)
+            .service(get_contests_ranklist)
             .app_data(web::Data::new(config.clone()))
 
     })

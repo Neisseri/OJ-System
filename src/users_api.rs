@@ -11,7 +11,7 @@ pub struct PostUser {
 }
 
 #[post("/users")]
-async fn put_users(body: web::Json<PostUser>) -> impl Responder {
+async fn post_users(body: web::Json<PostUser>) -> impl Responder {
 
     let mut lock = USER_LIST.lock().unwrap();
     let mut name_repeated: bool = false;
