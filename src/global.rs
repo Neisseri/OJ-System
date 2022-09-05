@@ -41,3 +41,21 @@ lazy_static! {
     // contest_id = 0 means the global ranking list
     // for the basic requirements 5
 }
+
+#[derive(Serialize, Deserialize, Clone, Default)]
+pub struct Contest {
+    pub id: usize,
+    pub name: String,
+    pub from: String,
+    pub to: String,
+    pub problem_ids: Vec<usize>,
+    pub user_ids: Vec<usize>,
+    pub submission_limit: u64,
+}
+
+lazy_static! {
+    pub static ref CONTEST_INFO: Arc<Mutex<Vec<Contest>>>
+        = Arc::new(Mutex::new(Vec::new()));
+    // the advanced_requirements
+    // record the information of contests
+}

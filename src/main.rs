@@ -20,6 +20,7 @@ mod get_single_job;
 mod put_jobs_id;
 mod users_api;
 mod ranking_list;
+mod post_contest;
 
 #[get("/hello/{name}")]
 async fn greet(name: web::Path<String>) -> impl Responder {

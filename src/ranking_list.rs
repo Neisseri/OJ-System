@@ -1,10 +1,7 @@
-use std::mem::swap;
-
-use actix_web::{get, middleware::Logger, post, web, App, HttpServer, Responder, HttpResponse};
+use actix_web::{get, web, Responder, HttpResponse};
 use serde::{Serialize, Deserialize};
 use crate::global::{USER_LIST, GLOBAL_CONTEST_LIST, User};
 use crate::config::Config;
-use crate::response;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
