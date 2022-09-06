@@ -9,7 +9,7 @@ pub struct User {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Submit {
     pub user_id: usize,
     pub problem_id: usize,

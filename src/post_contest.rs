@@ -4,6 +4,7 @@ use serde::{Serialize, Deserialize};
 use crate::global::{CONTEST_INFO, Contest, USER_LIST, User};
 use crate::error::Error;
 use crate::config::Config;
+use crate::persistent_storage::update_json_file;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 struct PostContest {
@@ -78,6 +79,7 @@ async fn post_contests(body: web::Json<PostContest>,
         (*contest_info)[contest_id - 1].problem_ids = body.problem_ids.clone();
         (*contest_info)[contest_id - 1].user_ids = body.user_ids.clone();
         (*contest_info)[contest_id - 1].submission_limit = body.submission_limit.clone();
+        update_json_file();
         return HttpResponse::Ok().json((*contest_info)[contest_id - 1].clone());
     } // `Id` is provided
     else { // create a new contest
@@ -127,6 +129,10 @@ async fn post_contests(body: web::Json<PostContest>,
                 submission_limit: body.submission_limit.clone(), 
             };
         (*contest_info).push(new_contest.clone());
+
+        drop(contest_info);
+        drop(user_list);
+        update_json_file();
         return HttpResponse::Ok().json(new_contest.clone());
-    } // `Id` is not pprovided
+    } // `Id` is not provided
 }

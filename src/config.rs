@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use crate::persistent_storage::{clear_persistent_storage, read_persistent_storage};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -53,17 +54,23 @@ pub struct Config {
 }
 
 pub fn get_config() -> Config {
+
     let mut config_address: String = String::new();
     let mut read: bool = false;
+    let mut read_storage: bool = true;
     // for arg in std::env::args() { println!("{}", &arg); }
     // used to get the command arguments
     for arg in std::env::args() {
         if read == true {
             config_address = arg.clone();
-            break;
+            read = false;
         }
         if arg == "--config" || arg == "-c" {
             read = true;
+        }
+        if arg == "--flush-data" {
+            clear_persistent_storage();
+            read_storage = false;
         }
     } // read the address of the config file
 
@@ -74,5 +81,8 @@ pub fn get_config() -> Config {
         // println!("{}", s);
         serde_json::from_str::<Config>(&s).unwrap()
     };
+    if read_storage == true {
+        read_persistent_storage();
+    }
     config
 }

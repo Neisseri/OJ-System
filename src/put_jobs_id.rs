@@ -2,6 +2,7 @@ use actix_web::{put, web, Responder, HttpResponse};
 use crate::global::JOB_LIST;
 use crate::error::Error;
 use chrono::{Utc, SecondsFormat};
+use crate::persistent_storage::update_json_file;
 
 #[put("/jobs/{job_id}")]
 async fn put_jobs(path: web::Path<usize>) -> impl Responder {
@@ -26,6 +27,9 @@ async fn put_jobs(path: web::Path<usize>) -> impl Responder {
         serde_json::to_string_pretty(&response.clone())
         .unwrap();
     // change the struct to json format String
+
+    drop(lock);
+    update_json_file();
 
     HttpResponse::Ok().body(response_body)
 }

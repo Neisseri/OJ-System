@@ -1,6 +1,7 @@
 use actix_web::{get, web, Responder, HttpResponse};
 use crate::global::JOB_LIST;
 use crate::error::Error;
+use crate::persistent_storage::update_json_file;
 
 #[get("/jobs/{job_id}")]
 async fn get_job_id(info: web::Path<usize>) -> impl Responder {
@@ -21,5 +22,9 @@ async fn get_job_id(info: web::Path<usize>) -> impl Responder {
     let response_body = 
             serde_json::to_string_pretty(&response.clone())
             .unwrap();
+
+    drop(lock);
+    update_json_file();
+
     HttpResponse::Ok().body(response_body)
 }

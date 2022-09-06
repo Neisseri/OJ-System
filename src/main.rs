@@ -8,6 +8,9 @@ use crate::judge_list::get_jobs;
 use crate::get_single_job::get_job_id;
 use crate::put_jobs_id::put_jobs;
 use crate::users_api::{post_users, get_users};
+use crate::post_contest::post_contests;
+use crate::get_contest::get_contests;
+use crate::get_contest_id::get_contests_id;
 
 mod config;
 mod judge_task;
@@ -21,6 +24,9 @@ mod put_jobs_id;
 mod users_api;
 mod ranking_list;
 mod post_contest;
+mod get_contest;
+mod get_contest_id;
+mod persistent_storage;
 
 #[get("/hello/{name}")]
 async fn greet(name: web::Path<String>) -> impl Responder {
@@ -57,6 +63,9 @@ async fn main() -> std::io::Result<()> {
             .service(post_users)
             .service(get_users)
             .service(get_contests_ranklist)
+            .service(post_contests)
+            .service(get_contests)
+            .service(get_contests_id)
             .app_data(web::Data::new(config.clone()))
 
     })
@@ -64,3 +73,9 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
+
+// The advances requirements I realized:
+// contest support ------------------------------ 10'
+// persistent storage by json ------------------- 5'
+// 
+

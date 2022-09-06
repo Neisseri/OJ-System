@@ -2,7 +2,7 @@ use actix_web::{post, get, web, Responder, HttpResponse};
 use serde::{Serialize, Deserialize};
 use crate::global::{USER_LIST, User};
 use crate::error::Error;
-use crate::response;
+use crate::persistent_storage::update_json_file;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PostUser {
@@ -60,6 +60,9 @@ async fn post_users(body: web::Json<PostUser>) -> impl Responder {
 
     }
 
+    drop(lock);
+    update_json_file();
+
     HttpResponse::Ok().json(response)
 }
 
@@ -67,5 +70,8 @@ async fn post_users(body: web::Json<PostUser>) -> impl Responder {
 async fn get_users() -> impl Responder {
     let lock = USER_LIST.lock().unwrap();
     let response = (*lock).clone();
+
+    drop(lock);
+    update_json_file();
     HttpResponse::Ok().json(response)
 }

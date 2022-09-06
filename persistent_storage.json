@@ -1,0 +1,19 @@
+{
+  "judge_task": [],
+  "user_info": [
+    {
+      "id": 0,
+      "name": "root"
+    },
+    {
+      "id": 1,
+      "name": "user1"
+    },
+    {
+      "id": 2,
+      "name": "user2"
+    }
+  ],
+  "contest_info": [],
+  "job_list": []
+}

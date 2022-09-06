@@ -2,17 +2,21 @@ pub mod post_job_api {
 
     use actix_web::{post, web, Responder, HttpResponse};
     use serde::{Serialize, Deserialize};
-    use crate::config::Config;
+    use crate::config::{Config, Language, Problem};
     use crate::error::Error;
-    use crate::global;
+    use crate::global::{User, USER_LIST, JOB_NUM, 
+            JOB_LIST, GLOBAL_CONTEST_LIST, Submit, CONTEST_INFO,
+            Contest };
     use std::fs;
     use std::io::Write;
     use std::process::{Command, Stdio};
+    use std::sync::MutexGuard;
     use crate::response::{Response, CaseResult, Result, State};
     use std::time::{Duration, Instant};
     use chrono::{Utc, SecondsFormat};
     use crate::tool::vec_char_equal;
     use wait_timeout::ChildExt;
+    use crate::persistent_storage::update_json_file;
 
     #[derive(Clone, Deserialize, Serialize, Default, Debug)]
     pub struct PostJob {
@@ -27,19 +31,19 @@ pub mod post_job_api {
     async fn post_jobs(body: web::Json<PostJob>, 
         config: web::Data<Config>) -> impl Responder {
 
-        let mut response = Response::new();
+        let mut response: Response = Response::new();
         // the json struct 'Response` type `response`
         response.created_time = Utc::now().
             to_rfc3339_opts(SecondsFormat::Millis, true);
         // println!("{}", &response.created_time);
         
-        let language = &body.language;
-        let langs = &config.languages;
+        let language: &String = &body.language;
+        let langs: &Vec<Language> = &config.languages; // the language list
         let mut file_name: String = String::new();
-        let mut valid_language: bool = false;
+        let mut valid_language: bool = false; // if the language is valid?
         let mut command: String = String::new();
         let mut argumemts: Vec<String> = Vec::new();
-        for i in 0..langs.len() {
+        for i in 0..langs.len() { // serach the language list
             if language == &langs[i].name {
                 valid_language = true;
                 file_name = langs[i].file_name.clone();
@@ -56,19 +60,21 @@ pub mod post_job_api {
             }
         } // check the language
         let mut valid_problem_id: bool = false;
-        let mut pro_index: usize = 0;
-        let pro_id = &body.problem_id;
-        let problems = &config.problems;
-        for i in 0..problems.len() {
-            if pro_id == &problems[i].id {
+        let mut pro_index: usize = 0; // the index in the problem list
+        let pro_id: &u64 = &body.problem_id; // submit problem id
+        let problems: &Vec<Problem> = &config.problems; // problem list
+        for i in 0..problems.len() { // search the problem list
+            if pro_id == &problems[i].id { // find the problem
                 valid_problem_id = true;
-                pro_index = i;
+                pro_index = i; // get the index for the problem
                 break;
             }
         } // check the problem id
-        let user_list = global::USER_LIST.lock().unwrap();
+        let user_list: MutexGuard<Vec<User>> = USER_LIST.lock().unwrap();
+        // stores the information of all the users
         if valid_language == false || valid_problem_id == false 
-            || body.user_id > (*user_list).len() as u64 - 1 { // check the user id
+            || body.user_id > (*user_list).len() as u64 - 1 { 
+            // language or problem_id or user_id is invalid
             return HttpResponse::NotFound().json(Error {
                 code: 3,
                 reason: "ERR_NOT_FOUND".to_string(),
@@ -76,7 +82,67 @@ pub mod post_job_api {
             });
         } // return the Error response
 
-        let mut lock = global::JOB_NUM.lock().unwrap();
+        // Since the problem_id and user_id are valid,
+        // next we should check whether the contest_id is valid
+        // and whether the problem and user are in the contest
+
+        let contest_id: u64 = body.contest_id;
+        if contest_id != 0 {
+            let contest_lock: MutexGuard<Vec<crate::global::Contest>> = 
+                CONTEST_INFO.lock().unwrap();
+            let contest_info: Vec<Contest> = (*contest_lock).clone();
+            let contest_num: usize = contest_info.len();
+            if contest_id > contest_num as u64 {
+                return HttpResponse::NotFound().json(Error {
+                    code: 3,
+                    reason: "ERR_NOT_FOUND".to_string(),
+                    message: "HTTP 404 Not Found".to_string(),
+                });
+            } // the contest_id is invalid, return 404 Not Found Error
+
+            let mut find_user: bool = false;
+            let mut find_problem: bool = false;
+            let target_contest: Contest = 
+                contest_info[contest_id as usize - 1].clone();
+            for i in 0..target_contest.user_ids.len() {
+                if body.user_id as usize == target_contest.user_ids[i] {
+                    find_user = true;
+                    break;
+                }
+            } // search the user_id list of this contest
+            for i in 0..target_contest.problem_ids.len() {
+                if body.problem_id as usize == target_contest.problem_ids[i] {
+                    find_problem = true;
+                    break;
+                }
+            } // search the problem_id list of this contest
+            if find_user == false || find_problem == false {
+                return HttpResponse::BadRequest().json(Error {
+                    code: 1,
+                    reason: "ERR_INVALID_ARGUMENT".to_string(),
+                    message: "HTTP 400 Bad Request".to_string(),
+                });
+            }
+            let contest_list_lock = GLOBAL_CONTEST_LIST.lock().unwrap();
+            let global_contest_list = (*contest_list_lock).clone();
+            let mut have_submit_time: u64 = 0;
+            for i in 0..global_contest_list.len() {
+                if body.user_id as usize == global_contest_list[i].user_id
+                && body.problem_id as usize == global_contest_list[i].problem_id {
+                    have_submit_time += 1;
+                }
+            } // the times have submitted for this problem
+            if have_submit_time >= target_contest.submission_limit {
+                return HttpResponse::BadRequest().json(Error {
+                    code: 4,
+                    reason: "ERR_RATE_LIMIT".to_string(),
+                    message: "HTTP 400 Bad Request".to_string(),
+                });
+            } // submit limites invalid
+        }
+        // advanced requirements: contest support
+
+        let mut lock = JOB_NUM.lock().unwrap();
         *lock += 1;
         let job_num = *lock - 1; // get the global variable
         // the serial number for judge jobs, i.e. the judge_job Id
@@ -301,16 +367,22 @@ pub mod post_job_api {
 
         // println!("{response_body}");
 
-        let mut lock = global::JOB_LIST.lock().unwrap();
+        let mut lock = JOB_LIST.lock().unwrap();
         (*lock).push(response.clone());
 
-        let mut global_contest_list = global::GLOBAL_CONTEST_LIST.lock().unwrap();
-        (*global_contest_list).push(global::Submit {
+        let mut global_contest_list = GLOBAL_CONTEST_LIST.lock().unwrap();
+        (*global_contest_list).push(Submit {
             user_id: body.user_id as usize,
             problem_id: body.problem_id as usize,
             score: total_score,
             submit_time: response.updated_time.clone(),
         });
+
+        drop(global_contest_list);
+        drop(lock);
+        drop(user_list);
+
+        update_json_file();
 
         HttpResponse::Ok().body(response_body)
     }

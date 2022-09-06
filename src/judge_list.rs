@@ -3,6 +3,7 @@ use crate::response::{State, Result, Response};
 use serde::{Serialize, Deserialize};
 use crate::global::JOB_LIST;
 use chrono::NaiveDateTime;
+use crate::persistent_storage::update_json_file;
 
 #[derive(Serialize, Deserialize)]
 struct ListFilter {
@@ -87,5 +88,9 @@ async fn get_jobs(info: web::Query<ListFilter>) -> impl Responder {
             serde_json::to_string_pretty(&filtered_list.clone())
             .unwrap();
     // println!("{response_body}");
+
+    drop(lock);
+    update_json_file();
+
     HttpResponse::Ok().body(response_body)
 }
