@@ -27,7 +27,8 @@ pub struct Case {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Misc {
-
+    pub packing: Option<Vec<Vec<usize>>>,
+    pub special_judge: Option<Vec<String>>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

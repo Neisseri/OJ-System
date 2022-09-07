@@ -2,11 +2,11 @@ pub mod post_job_api {
 
     use actix_web::{post, web, Responder, HttpResponse};
     use serde::{Serialize, Deserialize};
-    use crate::config::{Config, Language, Problem};
+    use crate::config::{Config, Language, Problem, Misc};
     use crate::error::Error;
     use crate::global::{User, USER_LIST, JOB_NUM, 
             JOB_LIST, GLOBAL_CONTEST_LIST, Submit, CONTEST_INFO,
-            Contest };
+            Contest};
     use std::fs;
     use std::io::Write;
     use std::process::{Command, Stdio};
@@ -30,6 +30,11 @@ pub mod post_job_api {
     #[post("/jobs")]
     async fn post_jobs(body: web::Json<PostJob>, 
         config: web::Data<Config>) -> impl Responder {
+
+        let path = "./target/tmp";
+        fs::remove_dir_all(path).unwrap();
+        fs::create_dir(path).unwrap();
+        // remove all the files in tmp but not the directory
 
         let mut response: Response = Response::new();
         // the json struct 'Response` type `response`
@@ -85,6 +90,23 @@ pub mod post_job_api {
         // Since the problem_id and user_id are valid,
         // next we should check whether the contest_id is valid
         // and whether the problem and user are in the contest
+
+        let mut if_wrong: Vec<bool> = Vec::new(); // for the packing judge
+        // if the group have appeared wrong cases
+        // the advanced requirements of packing judge
+        let mut in_which_group: usize = 0;
+        let mut groups: Vec<Vec<usize>> = Vec::new();
+        let mut if_packing: bool = false;
+        if problems[pro_index].misc.is_some() == true {
+            let misc = problems[pro_index].misc.clone().unwrap();
+            if misc.packing.is_some() == true {
+                if_packing = true;
+                groups = misc.packing.clone().unwrap();
+                for j in 0..groups.len() {
+                    if_wrong.push(false);
+                }
+            }
+        } // Packing Judge
 
         let contest_id: u64 = body.contest_id;
         if contest_id != 0 {
@@ -223,15 +245,11 @@ pub mod post_job_api {
                 continue;
             } // if compile error, the result is `waiting`
 
-            let begin_instant = Instant::now();
+            
             let in_file = fs::File::open(&cases[i].input_file).unwrap();
             let out_file = fs::File::create(&out_file_path).unwrap();
-            /*let mut status = Command::new(&exe_path)
-                    .stdin(Stdio::from(in_file))
-                    .stdout(Stdio::from(out_file))
-                    .stderr(Stdio::null())
-                    .status();*/
-
+            
+            let begin_instant = Instant::now();
             let mut child = Command::new(&exe_path)
                     .stdin(Stdio::from(in_file))
                     .stdout(Stdio::from(out_file))
@@ -279,7 +297,10 @@ pub mod post_job_api {
             let answer = std::fs::read_to_string(&cases[i].answer_file).unwrap();
             let output = std::fs::read_to_string(&out_file_path).unwrap();
             let mut cmp_result: bool = true;
-            if &pro_info.r#type == "standard" {
+
+            let mut info_s: String = String::new();
+
+            if &pro_info.r#type == "standard" { // Standard Judge
                 let mut ans: Vec<char> = Vec::new();
                 for c in answer.clone().chars() {
                     if c == '\n' {
@@ -307,33 +328,126 @@ pub mod post_job_api {
                 // println!("{}", &output);
                 // println!("{}", &answer);
                 cmp_result = vec_char_equal(&out, &ans);
-            } else if &pro_info.r#type == "strict" {
+            } else if &pro_info.r#type == "strict" { // Strict 
                 if answer == output {
                     cmp_result = true;
                 } else {
                     cmp_result = false;
                 }
             } // get the result of the comparison between output and answer
-
-            if cmp_result == true {
-                total_score += cases[i].score;
-                response.cases.push(CaseResult { 
-                    id: (i + 1) as u64, 
-                    result: Result::Accepted, 
-                    time: run_time as u64, 
-                    memory: 0, 
-                    info: "".to_string() 
-                });
-            } else {
-                response.cases.push(CaseResult { 
-                    id: (i + 1) as u64, 
-                    result: Result::WrongAnswer, 
-                    time: run_time as u64, 
-                    memory: 0, 
-                    info: "".to_string() 
-                });
+            else if &pro_info.r#type == "spj" { // Special Judge
+                let spj: Vec<String> = 
+                    pro_info.clone().misc.unwrap().special_judge.unwrap();
+                let mut cmd: String = String::new();
+                let mut args: Vec<String> = Vec::new();
+                let mut b: bool = false;
+                for ss in spj.into_iter() {
+                    if b == false {
+                        cmd = ss.clone();
+                        b = true;
+                    } else {
+                        if &ss == "%OUTPUT%" {
+                            args.push(out_file_path.clone());
+                        } else if &ss == "%ANSWER%" {
+                            args.push(cases[i].answer_file.clone());
+                        } else {
+                            args.push(ss.clone());
+                        }
+                    }
+                } // get the arguments for Run Command
+                let output = Command::new(cmd.clone())
+                                        .args(args.clone())
+                                        .output().unwrap().stdout;
+                let result = String::from_utf8(output).unwrap();
+                let mut ch_res: Vec<char> = Vec::new();                           
+                for ch in result.clone().chars() {
+                    ch_res.push(ch);
+                }
+                if ch_res[0] == 'A' {
+                    cmp_result = true;
+                } else {
+                    cmp_result = false;
+                }
+                let mut start_read = false;
+                for ch in result.clone().chars() {
+                    if ch == '\n' {
+                        start_read = true;
+                    }
+                    if start_read == true && ch != '\n' {
+                        info_s.push(ch.clone());
+                    }
+                }
             }
+
+            if if_packing == true { // the Packing Judge
+                if if_wrong[in_which_group] == true {
+                    response.cases.push(CaseResult { 
+                        id: (i + 1) as u64, 
+                        result: Result::Skipped, 
+                        time: run_time as u64, 
+                        memory: 0, 
+                        info: info_s.clone(),
+                    });
+                } // skip the group
+            else {
+                if cmp_result == true {
+                    response.cases.push(CaseResult { 
+                        id: (i + 1) as u64, 
+                        result: Result::Accepted, 
+                        time: run_time as u64, 
+                        memory: 0, 
+                        info: info_s.clone(),
+                    });
+                } else {
+                    response.cases.push(CaseResult { 
+                        id: (i + 1) as u64, 
+                        result: Result::WrongAnswer, 
+                        time: run_time as u64, 
+                        memory: 0, 
+                        info: info_s.clone(),
+                    });
+                    if_wrong[in_which_group] = true;
+                }
+            }
+            if groups[in_which_group].last().unwrap() == &((i + 1) as usize) {
+                in_which_group += 1;
+            }
+            } else { // the Normal Judge
+
+                if cmp_result == true {
+                    total_score += cases[i].score;
+                    response.cases.push(CaseResult { 
+                        id: (i + 1) as u64, 
+                        result: Result::Accepted, 
+                        time: run_time as u64, 
+                        memory: 0, 
+                        info: info_s.clone(),
+                    });
+                } else {
+                    response.cases.push(CaseResult { 
+                        id: (i + 1) as u64, 
+                        result: Result::WrongAnswer, 
+                        time: run_time as u64, 
+                        memory: 0, 
+                        info: info_s.clone(),
+                    });
+                }
+
+            }
+
         } // traverse the cases data
+
+        if if_packing == true { // Packing Judge
+            total_score = 0.0;
+            for i in 0..groups.len() {
+                if if_wrong[i] == false { // the group is Correct
+                    for j in 0..groups[i].len() {
+                        let case_index = groups[i][j] - 1;
+                        total_score += problems[pro_index].cases[case_index].score;
+                    }
+                }
+            }
+        }
 
         response.score = total_score;
         if total_score == 100.0 {

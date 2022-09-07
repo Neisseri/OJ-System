@@ -77,5 +77,6 @@ async fn main() -> std::io::Result<()> {
 // The advances requirements I realized:
 // contest support ------------------------------ 10'
 // persistent storage by json ------------------- 5'
-// 
+// packed judging ------------------------------- 5'
+// special judge -------------------------------- 10'
 
