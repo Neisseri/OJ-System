@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::judge_task::post_job_api::PostJob;
+use crate::judge_task::PostJob;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Response {

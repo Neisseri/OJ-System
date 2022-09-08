@@ -7,17 +7,15 @@ use crate::config::Config;
 use crate::persistent_storage::update_json_file;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
-struct PostContest {
-    id: Option<usize>,
-    name: String,
-    from: String,
-    to: String,
-    problem_ids: Vec<usize>,
-    user_ids: Vec<usize>,
-    submission_limit: u64,
+pub struct PostContest {
+    pub id: Option<usize>,
+    pub name: String,
+    pub from: String,
+    pub to: String,
+    pub problem_ids: Vec<usize>,
+    pub user_ids: Vec<usize>,
+    pub submission_limit: u64,
 }
-
-
 
 #[post("/contests")]
 async fn post_contests(body: web::Json<PostContest>,

@@ -3,7 +3,7 @@ use env_logger;
 use log;
 use ranking_list::get_contests_ranklist;
 use crate::config::get_config;
-use crate::judge_task::post_job_api::post_jobs;
+use crate::judge_task::post_jobs;
 use crate::judge_list::get_jobs;
 use crate::get_single_job::get_job_id;
 use crate::put_jobs_id::put_jobs;

@@ -1,5 +1,4 @@
 use std::sync::MutexGuard;
-
 use actix_web::{get, web, Responder, HttpResponse};
 use serde::{Serialize, Deserialize};
 use crate::error::Error;
@@ -80,7 +79,6 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
         vec![RankListResponse::default(); user_num];
     // the user_num should be the users in the contest
     // remember to use the index as `contest_id - 1`
-    // println!("{}", user_num);
 
     let mut user_score: Vec<Vec<f64>> = Vec::new();
     let mut user_use_time: Vec<Vec<Vec<u64>>> = Vec::new(); // for dynamic judging
@@ -143,7 +141,7 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
                 }
 
                 for j in 0..config.problems.len() {
-                    if config.problems[j].id == problem_id as u64 {
+                    if config.problems[j].id == problem_id {
                         problem_index = j;
                         break;
                     }
@@ -160,13 +158,11 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
                     user_submit_count[user_id] += 1;
                     user_use_time[user_id][problem_index] = 
                         (*global_contest_list)[i].run_time.clone();
-                    // println!("$$${:#?}", (*global_contest_list)[i].run_time.clone());
                 } else {
                     user_score[find_user as usize][find_problem as usize] = 
                         (*global_contest_list)[i].score;
                     user_use_time[find_user as usize][find_problem as usize] = 
                         (*global_contest_list)[i].run_time.clone();
-                    // println!("$$${:#?}", (*global_contest_list)[i].run_time.clone());
                     user_submit_order[find_user as usize] = i as i32;
                     user_submit_count[find_user as usize] += 1;
                 } // when the contest_id != 0
@@ -174,12 +170,11 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
             } // traverse all the submissions
 
             // The Dynamic Ranking part
-            // println!("{:#?}", user_use_time);
             for i in 0..problem_num {
                 let pro_id = config.problems[i].id;
                 let mut problem_index: usize = 0;
                 for j in 0..config.problems.len() {
-                    if config.problems[j].id == pro_id as u64 {
+                    if config.problems[j].id == pro_id {
                         problem_index = j;
                         break;
                     }
@@ -208,14 +203,11 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
                             for k in 0..case_num {
                                 let mut dyna_score = config.problems[problem_index]
                                     .cases[k].score * (1.0 - radio);
-                                //println!("raw{}", dyna_score);
-                                //println!("min = {}", min_time[k]);
                                 dyna_score = dyna_score * (
                                     min_time[k] as f64 / 
                                         user_use_time[j][i][k] as f64);
                                 user_score[j][i] += dyna_score;
                             }
-                            //println!("last{}", user_score[j][i]);
                         }
                     }
                 }
@@ -278,7 +270,6 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
                 }
             } // bubble sort
 
-            // println!("user_num = {}", user_num);
             for i in 0..user_num {
                 response[i].user.id = user_id[i];
                 response[i].user.name = (*user_lock)[user_id[i]].name.clone();
@@ -355,7 +346,7 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
                 }
 
                 for j in 0..config.problems.len() {
-                    if config.problems[j].id == problem_id as u64 {
+                    if config.problems[j].id == problem_id {
                         problem_index = j;
                         break;
                     }
@@ -449,7 +440,6 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
                 }
             } // bubble sort
 
-            // println!("user_num = {}", user_num);
             for i in 0..user_num {
                 response[i].user.id = user_id[i];
                 response[i].user.name = (*user_lock)[user_id[i]].name.clone();

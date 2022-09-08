@@ -1,3 +1,5 @@
+use std::sync::MutexGuard;
+use std::io::Error;
 use serde::{Serialize, Deserialize};
 use crate::global::{Submit, User, Contest, 
     GLOBAL_CONTEST_LIST, USER_LIST, CONTEST_INFO, JOB_LIST};
@@ -12,20 +14,21 @@ pub struct PersistentStorage {
 }
 
 pub fn clear_persistent_storage() {
-    let address = "./persistent_storage.json".to_string();
+    let address: String = "./persistent_storage.json".to_string();
     std::fs::write(&address, "{}")
         .expect("Clear Storage Error");
 }
 
 pub fn read_persistent_storage() {
-    let mut submit_lock = GLOBAL_CONTEST_LIST.lock().unwrap();
-    let mut user_lock = USER_LIST.lock().unwrap();
-    let mut contest_lock = CONTEST_INFO.lock().unwrap();
-    let mut job_lock = JOB_LIST.lock().unwrap();
-    let address = "./persistent_storage.json".to_string();
+    let mut submit_lock: MutexGuard<Vec<Submit>> = 
+        GLOBAL_CONTEST_LIST.lock().unwrap();
+    let mut user_lock: MutexGuard<Vec<User>> = USER_LIST.lock().unwrap();
+    let mut contest_lock: MutexGuard<Vec<Contest>> = CONTEST_INFO.lock().unwrap();
+    let mut job_lock: MutexGuard<Vec<Response>> = JOB_LIST.lock().unwrap();
+    let address: String = "./persistent_storage.json".to_string();
 
-    let storage_json = {
-        let json_record = std::fs::read_to_string(&address);
+    let storage_json: PersistentStorage = {
+        let json_record: Result<String, Error> = std::fs::read_to_string(&address);
         let s: String = json_record.unwrap();
         serde_json::from_str::<PersistentStorage>(&s).unwrap()
     };
@@ -44,11 +47,11 @@ pub fn read_persistent_storage() {
 }
 
 pub fn update_json_file() {
-    let submit_lock = GLOBAL_CONTEST_LIST.lock().unwrap();
-    let user_lock = USER_LIST.lock().unwrap();
-    let contest_lock = CONTEST_INFO.lock().unwrap();
-    let job_lock = JOB_LIST.lock().unwrap();
-    let address = "./persistent_storage.json".to_string();
+    let submit_lock: MutexGuard<Vec<Submit>> = GLOBAL_CONTEST_LIST.lock().unwrap();
+    let user_lock: MutexGuard<Vec<User>> = USER_LIST.lock().unwrap();
+    let contest_lock: MutexGuard<Vec<Contest>> = CONTEST_INFO.lock().unwrap();
+    let job_lock: MutexGuard<Vec<Response>> = JOB_LIST.lock().unwrap();
+    let address: String = "./persistent_storage.json".to_string();
     
     let response: PersistentStorage = PersistentStorage { 
         judge_task: Some((*submit_lock).clone()), 
