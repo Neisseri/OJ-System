@@ -29,6 +29,7 @@ pub struct Case {
 pub struct Misc {
     pub packing: Option<Vec<Vec<usize>>>,
     pub special_judge: Option<Vec<String>>,
+    pub dynamic_ranking_ratio: Option<f64>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]

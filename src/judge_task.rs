@@ -484,12 +484,19 @@ pub mod post_job_api {
         let mut lock = JOB_LIST.lock().unwrap();
         (*lock).push(response.clone());
 
+        let mut run_time_vec: Vec<u64> = Vec::new();
+        for i in 1..response.cases.len() {
+            run_time_vec.push(response.cases[i].time.clone());
+            //println!("###{}", response.cases[i].time.clone());
+        } // get the RunTime list
+
         let mut global_contest_list = GLOBAL_CONTEST_LIST.lock().unwrap();
         (*global_contest_list).push(Submit {
             user_id: body.user_id as usize,
             problem_id: body.problem_id as usize,
             score: total_score,
             submit_time: response.updated_time.clone(),
+            run_time: run_time_vec,
         });
 
         drop(global_contest_list);

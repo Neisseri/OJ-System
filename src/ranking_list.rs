@@ -45,7 +45,9 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
     let contest_id: usize = path.into_inner(); // the purpose contest
     let contest_info_lock: MutexGuard<Vec<Contest>> = CONTEST_INFO.lock().unwrap();
     let contest_info: Vec<Contest> = (*contest_info_lock).clone();
+    // get the information for all the contests
     let contest_num: usize = contest_info.len();
+    // the number of all the contests
     if contest_id > contest_num && contest_id != 0 {
         // the valid contest_id is from 1 to contest_num
         return HttpResponse::NotFound().json(Error {
@@ -53,7 +55,7 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
             reason: "ERR_NOT_FOUND".to_string(),
             message: format!("Contest {} not found.", contest_id).clone(),
         }); // return the 404 Not Found Error
-    }
+    } // The contest id in INVALID
 
     let mut target_contest: Contest = Contest::default();
     if contest_id != 0 {
@@ -81,10 +83,12 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
     // println!("{}", user_num);
 
     let mut user_score: Vec<Vec<f64>> = Vec::new();
+    let mut user_use_time: Vec<Vec<Vec<u64>>> = Vec::new(); // for dynamic judging
     // user_score[i][j], user_num * problem_num, record user's scores
     let mut user_id: Vec<usize> = Vec::new();
     for i in 0..user_num {
         user_score.push(vec![0.0; problem_num + 1]);
+        user_use_time.push(vec![vec![0]; problem_num]);
         if contest_id == 0 { user_id.push(i); }
         else {
             user_id.push(target_contest.user_ids[i]);
@@ -154,14 +158,69 @@ pub async fn get_contests_ranklist(path: web::Path<usize>,
                     user_submit_order[user_id] = i as i32; 
                     // record the latest submit as the time order
                     user_submit_count[user_id] += 1;
+                    user_use_time[user_id][problem_index] = 
+                        (*global_contest_list)[i].run_time.clone();
+                    // println!("$$${:#?}", (*global_contest_list)[i].run_time.clone());
                 } else {
                     user_score[find_user as usize][find_problem as usize] = 
                         (*global_contest_list)[i].score;
+                    user_use_time[find_user as usize][find_problem as usize] = 
+                        (*global_contest_list)[i].run_time.clone();
+                    // println!("$$${:#?}", (*global_contest_list)[i].run_time.clone());
                     user_submit_order[find_user as usize] = i as i32;
                     user_submit_count[find_user as usize] += 1;
                 } // when the contest_id != 0
 
             } // traverse all the submissions
+
+            // The Dynamic Ranking part
+            // println!("{:#?}", user_use_time);
+            for i in 0..problem_num {
+                let pro_id = config.problems[i].id;
+                let mut problem_index: usize = 0;
+                for j in 0..config.problems.len() {
+                    if config.problems[j].id == pro_id as u64 {
+                        problem_index = j;
+                        break;
+                    }
+                } // find the problem's index using its Id
+                let case_num = config.problems[problem_index].cases.len();
+                if &config.problems[problem_index].r#type == "dynamic_ranking" {
+                    let radio = config.problems[problem_index].misc.clone()
+                        .unwrap().dynamic_ranking_ratio.unwrap();
+                    let mut min_time: Vec<u64> = Vec::new();
+                    for j in 1..case_num + 1 {
+                        let mut minn: u64 = 0;
+                        for k in 0..user_num {
+                            if minn == 0 || minn > user_use_time[k][i][j - 1] {
+                                minn = user_use_time[k][i][j - 1];
+                            }
+                        } // search the min run time
+                        min_time.push(minn);
+                    }
+                    for j in 0..user_num {
+                        if user_score[j][i] < 100.0 {
+                            user_score[j][i] = user_score[j][i] * (1.0 - radio);
+                        } else {
+                            // user: j, problem: problem_index (i), case k 
+                            user_score[j][i] = user_score[j][i] * (1.0 - radio);
+                            //println!("first{}", user_score[j][i]);
+                            for k in 0..case_num {
+                                let mut dyna_score = config.problems[problem_index]
+                                    .cases[k].score * (1.0 - radio);
+                                //println!("raw{}", dyna_score);
+                                //println!("min = {}", min_time[k]);
+                                dyna_score = dyna_score * (
+                                    min_time[k] as f64 / 
+                                        user_use_time[j][i][k] as f64);
+                                user_score[j][i] += dyna_score;
+                            }
+                            //println!("last{}", user_score[j][i]);
+                        }
+                    }
+                }
+            }
+            // The Dynamic Ranking part
 
             for i in 0..user_num {
                 for j in 0..problem_num {

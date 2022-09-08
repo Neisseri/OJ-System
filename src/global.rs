@@ -15,6 +15,7 @@ pub struct Submit {
     pub problem_id: usize,
     pub score: f64,
     pub submit_time: String,
+    pub run_time: Vec<u64>,
 }
 
 lazy_static! {

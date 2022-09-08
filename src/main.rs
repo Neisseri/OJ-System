@@ -79,4 +79,5 @@ async fn main() -> std::io::Result<()> {
 // persistent storage by json ------------------- 5'
 // packed judging ------------------------------- 5'
 // special judge -------------------------------- 10'
+// dynamic ranking ------------------------------ 10'
 
